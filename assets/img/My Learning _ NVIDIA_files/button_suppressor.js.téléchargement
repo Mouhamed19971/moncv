@@ -1,0 +1,21 @@
+(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+        .buy-btn {
+            visibility: hidden !important;
+            display: none !important;
+        }
+    `
+    const { search } = document.location
+    let enable = true;
+    if (search && search.match('.*-(ZH|JA|KR|TW)')) {
+        // This won't work, so don't cause confusion
+        enable = false;
+    }
+    if (!enable) {
+        document.head.appendChild(style);
+        document.enableBuyButton = function () {
+            document.head.removeChild(style);
+        }
+    }
+})();

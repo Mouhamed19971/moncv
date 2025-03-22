@@ -1,0 +1,306 @@
+$ = jQuery;
+let courseMeta;
+let certificationDateTitle = 'Issue Date: ';
+$(document).ready(function () {
+  loadCertificateTemplate();
+});
+
+function loadCertificateTemplate() {
+  populateCredentialViewData();
+}
+
+function populateCredentialViewData() {
+  let credentialID = getParameterByName('id');
+  let dmData = {
+    ibl_dm_url: IBL_DM_URL,
+    id: credentialID,
+  };
+
+  // Ensure credentialID ends with a slash
+  if (!credentialID?.endsWith('/')) {
+    credentialID = credentialID + '/';
+  }
+  let edxData = {
+    ibl_edx_url: IBL_LMS_URL,
+    id: credentialID,
+  };
+
+  // Make API call to IBL DM to get public assertion
+  window.api.ibldmcred.getPublicAssertion(
+    dmData,
+    function (data) {
+      addDataToCredential(data);
+    },
+    function () {
+      // If IBL DM API call fails, try IBL EDX API call
+      api.ibledxcred.getPublicAssertion(
+        edxData,
+        function (data) {
+          let credential = data[0].data[0];
+          addDataToCredential(credential);
+        },
+        function () {
+          // If both API calls fail, redirect to home page
+          window.location = home_url();
+        }
+      );
+    }
+  );
+}
+
+function getCourseMeta(courseID, filteredResult, callBack) {
+  let data = {
+    course_key: courseID,
+  };
+  window.api.ibledxcourses.getCourseMeta(data, function (data) {
+    let type = 'competency';
+    if (data.certificate_type) {
+      type = data.certificate_type;
+    }
+    courseMeta = data;
+    callBack && callBack(courseMeta);
+    const certTitleMap = {
+      instructor: {
+        title: 'Certified Instructor',
+        description: 'This certificate acknowledges that',
+        text: `has been certified to deliver the instructor-led workshop <br> <strong>${filteredResult.credentialDetails?.name_override ?? data.title}</strong>`,
+        date_title: 'Certification Date: ',
+        badge: 'img/dli-certified-instructors-icon-100x100.svg',
+        footerText: `Certification ID: ${filteredResult.entityId}`,
+      },
+      ambassador: {
+        title: 'University Ambassador',
+        description: 'This certificate acknowledges that',
+        text: `has been certified to deliver NVIDIA instructor-led workshop for academia`,
+        badge: 'img/ambassador-certificate-badge.svg',
+        date_title: 'Issue Date: ',
+        footerText: `Ambassador Certification ID: ${filteredResult.entityId}`,
+      },
+      completion: {
+        title: 'Certificate of Completion',
+        description: 'This certificate is awarded to',
+        text: `for successfully completing <br> <strong>${filteredResult.credentialDetails?.name_override ?? data.title}</strong>`,
+        date_title: 'Issue Date: ',
+        footerText: `Certification ID: ${filteredResult.entityId}`,
+      },
+      unitar: {
+        title: 'CERTIFICATE OF COMPETENCY',
+        description: 'The NVIDIA Deep Learning Institute recognizes',
+        text: `for the successful completion of <br> <strong>${filteredResult.credentialDetails?.name_override ?? data.title}</strong>`,
+        footerText: `Certification ID: ${filteredResult.entityId}`,
+      },
+      competency: {
+        title: 'Certificate of Competency',
+        description: 'This certificate is awarded to',
+        text: `for demonstrating competence in the completion of <br> <strong>${filteredResult.credentialDetails?.name_override ?? data.title}</strong>`,
+        date_title: 'Issue Date: ',
+        footerText: `Certification ID: ${filteredResult.entityId}`,
+      },
+      expert: {
+        title: 'Certified Expert',
+        description: 'NVIDIA hereby certifies',
+        text: `as an NVIDIA Certified Expert <strong>| ${filteredResult.credentialDetails?.name_override ?? data.title}</strong>`,
+        badge: 'img/expert-certificate-badge.png',
+        date_title: 'Certification Date: ',
+        footerText: `Certification ID: ${filteredResult.entityId}`,
+      },
+      professional: {
+        title: 'Certified Professional',
+        description: 'NVIDIA hereby certifies',
+        text: `as an NVIDIA Certified Professional <strong>| ${filteredResult.credentialDetails?.name_override ?? data.title}</strong>`,
+        badge: 'img/professional-certificate-badge.png',
+        date_title: 'Certification Date: ',
+        footerText: `Certification ID: ${filteredResult.entityId}`,
+      },
+      associate: {
+        title: 'Certified Associate',
+        description: 'NVIDIA hereby certifies',
+        text: `as an NVIDIA Certified Associate <strong>| ${filteredResult.credentialDetails?.name_override ?? data.title}</strong>`,
+        badge: 'img/associate-certificate-badge.png',
+        date_title: 'Certification Date: ',
+        footerText: `Certification ID: ${filteredResult.entityId}`,
+      },
+    };
+    if (type === 'unitar') {
+      $('.header-left .certificate-title').hide();
+      $('.nvidia_cer_header .header-left').html(`
+        <img src="img/nvidia-cert-logo-w-un.png" loading="lazy" alt="" class="nvidia_cert_logo">
+        <img src="img/un.png" loading="lazy" alt="" class="nvidia_cert_logo">`);
+    } else {
+      $('.nvidia_cer_header').addClass('non-unitar');
+      $('.nvidia_cer_body').addClass('non-unitar');
+      $('.nvidia_cer_header .header-left').prepend(`
+        <img src="/img/nvidia_logo.svg" loading="lazy" alt="" class="n_logo">
+      `);
+      if (certTitleMap[type].badge) {
+        if (['ambassador', 'instructor'].includes(type)) {
+          $('.nvidia_cer_header.non-unitar .badge').css(
+            'background-color',
+            '#313234'
+          );
+        }
+        $('.nvidia_cer_header.non-unitar .badge').html(
+          `<img src="${certTitleMap[type].badge}" loading="lazy" alt="" class="n_logo">`
+        );
+      }
+    }
+    certificationDateTitle = certTitleMap[type].date_title;
+    $(`.certificate-title`).text(certTitleMap[type].title);
+    $('.cert_desc').text(certTitleMap[type].description);
+    $('.nvidia_cert_text').html(certTitleMap[type].text);
+
+    const signatories = filteredResult.credentialDetails.signatories;
+    $('.sign-row').append(`
+    <div>
+      <img src="img/nvidia signature.png" loading="lazy" alt="" class="nvidia_sign_image" />
+      <div class="m_name">Greg Estes</div>
+      <div class="m_title">Vice President, NVIDIA</div>
+    </div>`);
+    // if (signatories.length > 0) {
+    //   $('.sign-row').append(`
+    // <div class="${type}">
+    //   <img src="${signatories[0].signature_image_path}" loading="lazy" alt="" class="nvidia_sign_image" />
+    //   <div class="nvidia_cert_line sign_line"></div>
+    //   <div class="m_name">${signatories[0].name}</div>
+    //   <div class="m_title">${signatories[0].title}</div>
+    // </div>`);
+    // }
+    // if (signatories.length > 1 && type === 'unitar') {
+    //   $('.sign-row').append(`
+    //     <div class="${type}">
+    //       <img src="${signatories[1].signature_image_path}"  loading="lazy"  alt="" class="nvidia_sign_image">
+    //         <div class="nvidia_cert_line sign_line"></div>
+    //         <div class="m_name">
+    //           ${signatories[1].name}
+    //         </div>
+    //         <div class="m_title">
+    //           ${signatories[1].title}
+    //         </div>
+    //     </div>
+    //   `);
+    // }
+
+    $('.nvidia_cert_date_right').html(certTitleMap[type].footerText);
+
+    console.log('Display name : ', data.display_name);
+    $('.ccourse').html(data.display_name);
+    $('[data-type="' + type + '"]').show();
+  });
+}
+
+function addDataToCredential(filteredResult) {
+  let courseID = filteredResult.course.course_id;
+  let courseName = filteredResult.course.name;
+
+  getCourseMeta(courseID, filteredResult, (_courseMeta) => {
+    let issueDate = filteredResult.issuedOn;
+    let date = new Date(issueDate);
+    let month = date.toLocaleString('default', { month: 'long' });
+    let monthNum = date.getMonth() + 1;
+    let day = date.getDate();
+    let year = date.getFullYear();
+    let recipientName = filteredResult.recipient.name;
+    let recipientUsername = filteredResult.recipient.username;
+    let token = localStorage.getItem('axd_token');
+    let currentUserData = JSON.parse(localStorage.getItem('userData'));
+    if (token && currentUserData.user_nicename == recipientUsername) {
+      //add linkedin and download buttons
+      let data = {
+        linkedin: true,
+        download: true,
+        id: getParameterByName('id'),
+      };
+      window.api.iblwebcredentials.addCredentialButtons(data, filteredResult);
+    }
+    if (recipientName) {
+      $('.inst_name').html(recipientName);
+    } else if (recipientUsername) {
+      $('.inst_name').html(recipientUsername);
+    }
+    //$(".ccourse").html(courseName);
+    $('.nvidia_cert_date_left').html(
+      (courseMeta.certificate_type !== 'unitar'
+        ? `${certificationDateTitle}: `
+        : '') +
+        month +
+        ' ' +
+        day +
+        ', ' +
+        year
+    );
+    $('.cid').html(getParameterByName('id'));
+    $('.clink').html(home_url() + '/courses/course?course_id=' + courseID);
+    $('.clink').html(window.location.href);
+
+    if (localStorage.getItem('axd_token')) {
+      $('.cert-download').after(`
+        <div class="cert-more">
+            <div class="cert-more-cont">
+              <div class="text-block-3">More about ${
+                recipientName ?? recipientUsername
+              }&#x27;s accomplishment<br></div>
+              <div class="cert_more_flex">
+                <div class="cert-more-div">
+                  <div class="more-flex"><img src="" loading="lazy" alt="" class="cert-user-img">
+                    <div>
+                      <div class="text-name">${
+                        recipientName ?? recipientUsername
+                      }</div>
+                      <div class="text-name bold">${recipientUsername} @ NVIDIA</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="cert-more-div">
+                  <div class="more-light-text">Certificate ID Number:</div>
+                  <div class="text-bold">${
+                    filteredResult.credentialDetails.entityId
+                  }</div>
+                </div>
+                <div class="cert-more-div last">
+                  <div class="more-light-text">Issued On:</div>
+                  <div class="text-bold">${
+                    month + ' ' + day + ', ' + year
+                  }</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `);
+      if (
+        filteredResult.recipient.username ===
+        JSON.parse(localStorage.getItem('userData')).user_nicename
+      ) {
+        const certificateUrl = window.location.href;
+        const linkedinUrl = `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${filteredResult.credentialDetails.name}&issueYear=${year}&issueMonth=${month}&certUrl=${certificateUrl}&certId=${filteredResult.credentialDetails.entityId}`;
+        $('.cert-more').before(`
+          <div class="linkedin_btn-3">
+            <a href="${linkedinUrl}" target="_blank" class="link-block-9 w-inline-block">
+            <div class="link-block soc lnkd">
+              <img src="img/linkedin-icon.svg" alt="" class="image-42"></div>
+              <div class="button social_btn lnk">Add to Profile</div>
+            </a>
+          </div>
+        `);
+      }
+      $('.cert-download').removeClass('d-none');
+      $('.cert-download').click(function () {
+        // Add 'no-print' class to the div to be excluded
+        $('#header').addClass('no-print');
+        $('#footer').addClass('no-print');
+        $('.cert-download').addClass('no-print');
+        $('.linkedin_btn-3').addClass('no-print');
+        $('.cert-more').addClass('no-print');
+        // Print the page
+        window.print();
+
+        // Optionally remove 'no-print' class after printing
+        $('#header').removeClass('no-print');
+        $('#footer').removeClass('no-print');
+        $('.cert-download').removeClass('no-print');
+        $('.linkedin_btn-3').removeClass('no-print');
+        $('.cert-more').removeClass('no-print');
+      });
+    }
+  });
+}

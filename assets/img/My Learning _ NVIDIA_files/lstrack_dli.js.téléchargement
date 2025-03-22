@@ -1,0 +1,148 @@
+function track(siteId) {
+    delete document['lstrack']
+
+    const queryMap = new URLSearchParams(window.location.search)
+    const referrerQueryMap = new URLSearchParams(document.referrer.split('?')[1] || '')
+    const getCookie = (key) => document.cookie.split('; ')
+        .find(row => row.startsWith(`${key}=`))
+        ?.split('=')[1];
+
+    const lsCookieName = "SESSls";
+    const lsdCookieName = "SESSlsd";
+    const ncidCookieName = "SESSncid";
+
+    class NCIDTracker {
+        constructor() {
+            this._anyValueSet = false;
+        }
+
+        start(eventData) {
+            this.update(eventData);
+            if (!this._anyValueSet) return;
+            try {
+                this.postTrackEvent(eventData);
+            } catch (e) {
+                console.log(e);
+            }
+        }
+
+        postTrackEvent(data) {
+            let {origin, hostname} = document.location
+            if (origin.includes('learn.nvidia.com') || origin.includes('courses.nvidia.com')) {
+                hostname = 'courses.nvidia.com'; // patch CORS for this site
+            }
+            const event_url =
+                origin.includes('localhost') ? 'http://localhost:8000/1/event/landing' :
+                    origin.includes('stag') || origin.includes('static.profile.api.courses.nvidia.com') ? 'https://profile.api.courses.nvidia.com/stage/1/event/landing' :
+                        `https://profile.api.${hostname}/prod/1/event/landing?client=${siteId}`
+            console.log('posting with cookies', eventData)
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', event_url, true);
+            xhr.setRequestHeader('Content-Type', 'application/json')
+            xhr.withCredentials = true;
+            xhr.send(null);
+        }
+
+        update(eventData) {
+            // Form the domain string to be used when creating the "ls" cookie.
+            const domainArray = document.domain ? document.domain.split(".") : []; // Split domain string into an array.
+            // Concatenate the last two items in the array to form something like "mellanox.com" essentially chopping off the "www".)
+            const prefix = domainArray.length > 1 ? '.' : ''
+            const domainString = `${prefix}${domainArray.slice(-2).join(".")}`;
+            const maxAge = (60 * 60 * 24 * 90); // Set the duration of the cookie in seconds.
+            const setValueContext = this;
+
+            const setValue = function (name, value) {
+                const newCookie = `${name}=${encodeURIComponent(value)};path=/;domain=${domainString};max-age=${maxAge};SameSite=Lax`
+                document.cookie = newCookie
+                eventData[name] = value
+                setValueContext._anyValueSet = true
+            }
+
+
+            const schemeRegex = /https?:\/\//;
+
+            const referrer = document.referrer || '';
+
+            setValue(ncidCookieName, eventData[ncidCookieName]);
+
+            if (queryMap.ls) {
+                // Set "ls" cookie to the value of the "ls" parameter in the URL if it exists.
+                setValue(lsCookieName, queryMap.ls);
+            } else if (referrer) {
+                // If the user is coming from a search engine organically,
+                // then set the "ls" cookie accordingly.
+
+                let lsValue = '';
+                let lsdValueSEO = window.location.href;
+                // Check to see if the referrer domain belongs to Google, Bing, Yahoo or Ask.
+                // Since Google is using ccTLDs but Yahoo, Ask and Bing do not, there is a difference in how they are tested.
+                if (referrer.includes("www.google.")) {
+                    lsValue = 'gseo';
+                } else if (referrer.includes("bing.com")) {
+                    lsValue = "bseo";
+                } else if (referrer.includes("ask.com")) {
+                    lsValue = "aseo";
+                } else if (referrer.includes("yahoo.com")) {
+                    lsValue = "yseo";
+                } else {
+                    lsValue = getCookie(lsCookieName);
+                    if (lsValue) {
+                        if (referrer.includes("developer.nvidia.com")) {
+                            lsValue = "website"; // Set the cookie value.
+                            lsdValueSEO = referrer;
+                        } else {
+                            lsValue = "ref";
+                            lsdValueSEO = 'REF-' + referrer;
+                        }
+                    }
+                }
+                if (lsValue) {
+                    setValue(lsCookieName, lsValue);
+                    setValue(lsdCookieName, lsdValueSEO.replace(schemeRegex, ''))
+                }
+            } else {
+                let lsValue = getCookie(lsCookieName);
+                if (!lsValue) {
+                    setValue(lsCookieName, 'website');
+                    let lsdValue = getCookie(lsdCookieName);
+                    if (!lsdValue) {
+                        setValue(lsdCookieName, window.location.href.replace(schemeRegex, ''))
+                    }
+                }
+            }
+
+            if (queryMap.lsd) {
+                // Always set the "lsd" cookie with any ppc value provided in the URL parameter if available.
+                setValue(lsdCookieName, queryMap.lsd);
+            } else if (referrer) {
+                // Else if no "lsd" parameter is passed in the URL, then set the "lsd" cookie value to
+                // the search query string found in the referrer URL parameters.
+                // If no search query string is found, then store the entire referrer URL.
+                // Now determine if the referrer is coming from a search engine.
+                // Then look for a search query string in the URL (Parameter "q" for Google, Bing, Ask; Parameter "p" for Yahoo).
+                if (referrer.includes("google") && referrerQueryMap.q) {
+                    // First we'll look for Google.
+                    setValue(lsdCookieName, referrerQueryMap.q)
+                } else if (referrer.includes("bing.com") && referrerQueryMap.q) {
+                    // Now let's look for Bing.
+                    setValue(lsdCookieName, referrerQueryMap.q)
+                } else if (referrer.includes("yahoo.com") && referrerQueryMap.p) {
+                    // Now let's look for Yahoo.
+                    setValue(lsdCookieName, referrerQueryMap.p)
+                } else if (referrer.includes("ask.com") && getReferrerQueryVariable("p")) {
+                    // Now let's look for Ask.
+                    setValue(lsdCookieName, referrerQueryMap.p)
+                } else if (referrer.includes("google") || referrer.includes("bing.com") || referrer.includes("yahoo.com") || referrer.includes("ask.com")) {
+                    // If no query string is found but referrer URL is still coming from search engine, then set cookie to entire referrer URL.
+                    setValue(lsdCookieName, referrer)
+                }
+            }
+        }
+    }
+
+    const eventData = { [ncidCookieName]: queryMap.get('ncid') || getCookie('sc_cmp') }
+    if (!eventData[ncidCookieName]) return;
+    new NCIDTracker().start(eventData);
+}
+document.lstrack = { track }

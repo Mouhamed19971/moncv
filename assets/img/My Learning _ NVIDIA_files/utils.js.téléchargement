@@ -1,0 +1,1957 @@
+function loadSPAScript(slug) {
+  var script = document.createElement('script');
+  if (slug === '') {
+    slug = 'home';
+  }
+  script.src = `/js/${slug}.js?v=${IBL_CURRENT_VERSION}`;
+  // Append the script tag to the end of the document's body
+  document.body.appendChild(script);
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = src;
+    script.async = false;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+function getPageSlug() {
+  let slug = window.location.pathname;
+  slug = slug.replace('/', '');
+  slug = slug.replace('.html', '');
+  if (slug[slug.length - 1] === '/') {
+    slug = slug.substring(0, slug.length - 1);
+  }
+  return slug;
+}
+
+function isLoggedIn() {
+  return localStorage.getItem('axd_token') !== null;
+}
+
+function populateUserBox() {
+  const userData = JSON.parse(localStorage.getItem('userData'));
+  window.api.ibledxusers.getUsersManageMetadata(
+    { username: userData['user_nicename'] },
+    function (data) {
+      $('.user-name').text(data.name);
+      $('.user-bio').text(data.bio);
+      let socialLinks = data.social_links;
+      populateSocials(socialLinks);
+      $('.sk-home-first-box').hide();
+      $('.home-first-box').show();
+    }
+  );
+}
+
+function addRandomItemImage() {
+  var images = document.querySelectorAll('.image-11');
+  for (var i = 0; i < images.length; i++) {
+    images[i].addEventListener('error', function () {
+      let plugin_url = IBL_WEB_SKILLS_PLUGIN_URL;
+      let img_url = plugin_url + '/public/images';
+
+      let images_array = [
+        'c1s.jpeg',
+        'c2s.jpeg',
+        'c3s.jpeg',
+        'c4s.jpeg',
+        'c5s.jpeg',
+        'c6s.jpeg',
+        'c7s.jpeg',
+        'c8s.jpeg',
+      ];
+      let random = Math.floor(Math.random() * images_array.length);
+      this.src = img_url + '/courses/' + images_array[random];
+    });
+  }
+}
+
+function home_url() {
+  return window.location.protocol + '//' + window.location.host;
+}
+
+function populateOrgData() {
+  populateDiscoverHomeItem();
+}
+
+async function populateDiscoverHomeItem() {
+  let postData = getPostData();
+
+  let urlParams = new URLSearchParams(window.location.search);
+  let q = urlParams.get('q');
+  if (q !== null) {
+    postData.context = q;
+  }
+  return new Promise((resolve, reject) => {
+    orgSearch(postData, function (data) {
+      results = response.body.results;
+      addFilters();
+      if (results.length > 0) {
+        const totalResults = response.body.total_results;
+        myStorage.setItem('totalPages', Math.ceil(totalResults / 20));
+        if (myStorage.getItem('currentPage') === null) {
+          myStorage.setItem('currentPage', 1);
+        }
+        addHomeBrowseBoxes(results);
+        addHomePagination();
+        resolve();
+      }
+    });
+  });
+}
+
+function getPostData() {
+  let urlParams = new URLSearchParams(window.location.search);
+  let q = urlParams.get('q');
+
+  let page = myStorage.getItem('currentPage');
+  if (page === null) {
+    page = 1;
+  }
+  let data = '';
+  if (q !== null && q !== '') {
+    // data = {
+    //   //todo enable programs when about pages are ready
+    //   multiple_indices_context: [
+    //     '{"_index": "ibl-dm.public.dl_catalog_app_course"}',
+    //     // '{"_index": "ibl-dm.public.dl_catalog_app_program"}',
+    //     '{"_index": "ibl-dm.public.dl_catalog_app_pathway"}',
+    //   ],
+    //   page: page,
+    //   context: q,
+    // };
+    data =
+      '?multiple_indices_context=[{"_index":"ibl-dm.public.dl_catalog_app_course"}]&page=' +
+      page +
+      '&context=' +
+      q;
+    // data =
+    //   '?multiple_indices_context=[{"_index":"ibl-dm.public.dl_catalog_app_course"},{"_index":"ibl-dm.public.dl_catalog_app_pathway"}]&page=' +
+    //   page +
+    //   "&context=" +
+    //   q;
+  } else {
+    // data = {
+    //   //todo enable programs when about pages are ready
+    //   multiple_indices: [
+    //     '{"_index": "ibl-dm.public.dl_catalog_app_course"}',
+    //     // '{"_index": "ibl-dm.public.dl_catalog_app_program"}',
+    //     '{"_index": "ibl-dm.public.dl_catalog_app_pathway"}',
+    //   ],
+    //   page: page,
+    // };
+    // data =
+    //   '?multiple_indices=[{"_index":"ibl-dm.public.dl_catalog_app_course"},{"_index":"ibl-dm.public.dl_catalog_app_pathway"}]&page=' +
+    //   page;
+    data =
+      '?multiple_indices=[{"_index":"ibl-dm.public.dl_catalog_app_course"}]&page=' +
+      page;
+  }
+
+  return data;
+}
+
+function addHomeBrowseBoxes(data) {
+  let plugin_url = IBL_WEB_SKILLS_PLUGIN_URL;
+  data.forEach(function (item) {
+    let a = document.createElement('a');
+    let name = getTypeFromIndex(item._index);
+    let type = name;
+    type = type.toUpperCase();
+    let label = '';
+    if (type == 'COURSES') {
+      label = 'c';
+    } else if (type == 'PATHWAYS') {
+      label = '';
+    } else if (type == 'PROGRAMS') {
+      label = 'c';
+    } else {
+      label = 'o';
+      type = 'Learning Content';
+    }
+    let starsClass = 'hide';
+    let skillsClass = 'hide';
+    if (!isLoggedIn()) {
+      optionsClass = 'hide';
+    }
+    let org = '';
+    let link = '';
+    if (name == 'courses') {
+      link = home_url() + '/' + name + '/' + item._source.course_id;
+    } else if (name == 'programs') {
+      link = home_url() + '/' + name + '/' + item._source.program_id;
+    } else if (name == 'pathways') {
+      link = home_url() + '/' + name + '/' + item._source.pathway_uuid;
+    }
+    $(a).attr('href', link);
+
+    let level = '';
+    let itemData = JSON.parse(item._source.data);
+    if (itemData) {
+      level = itemData.level;
+      if (level == null) {
+        level = '';
+      }
+    }
+    a.className = 'link-block-7 w-inline-block';
+    a.innerHTML =
+      `<div class="item-box">
+    <div class="div-block-22">
+       <img src="` +
+      item.course_image_asset_path +
+      `" onerror="returnDefault()" loading="lazy" alt="" class="image-11">
+       <div class="label ` +
+      label +
+      `">
+          <div class="text-block-124">` +
+      type +
+      `</div>
+       </div>
+    </div>
+    <div class="item-body">
+       <div class="div-block-23">
+          <div class="div-block-24">
+          <img src="` +
+      item.org_img +
+      `" loading="lazy" alt="" class="image-18"></div>
+          <div class="text-block-16">` +
+      org +
+      `</div>
+          <div class="div-block-28 sk-">
+             <div class="text-block-20 ">120 Skill Coins</div>
+          </div>
+       </div>
+       <div class="text-block-9">` +
+      item._source.name +
+      `</div>
+       <div class="div-block-25">
+          <div class="text-block-17  sk- ` +
+      skillsClass +
+      `"><span class="skill_span">Computer Programming</span> <span class="skill_span">Python
+                Libraries</span><span class="skill_span last">Python Programming</span></div>
+       </div>
+    
+       <div class="div-block-26 ` +
+      starsClass +
+      `">
+       <img src="` +
+      plugin_url +
+      `public/images/r_stars.png" loading="lazy" alt="" class="image-19">
+       <div class="text-block-18">(1k+)</div>
+    </div>
+
+    <div class="div-block-27">
+    <div class="text-block-19">
+      ` +
+      (level && item.duration
+        ? level +
+          ` <span class="bullet"><strong class="bold-text-2">•</strong></span>`
+        : level) +
+      `<strong class="bold-text-2"> ` +
+      (item.duration ? item.duration : '') +
+      `</strong>
+    </div>
+    <div class="item_options">
+      <div class="item_options_triger"><img src="https://assets.website-files.com/638f851957f4387958ad215e/638f851957f4382900ad22b0_menu.png" loading="lazy" alt="" class="image-20"></div>
+      <div class="options_div" style="display: none;">
+        <div class="text-block-103">Add to Pathway</div>
+        <div class="text-block-103">Save for Later</div>
+        <div class="text-block-103">Dismiss</div>
+        <div class="text-block-103">Share</div>
+        <div class="text-block-103">Create a Pathway</div>
+      </div>
+    </div>
+  </div>
+    </div>
+ </div>`;
+    $('.results-placeholder-grid').hide();
+    $('.results').append(a);
+  });
+}
+
+function addHomePagination() {
+  $('.pagination').remove();
+  let totalPages = myStorage.getItem('totalPages');
+
+  let paginationHtml = '<div class="pagination">';
+  let currentPage = parseInt(myStorage.getItem('currentPage'));
+  if (currentPage > 1) {
+    paginationHtml +=
+      '<div class="pagination_button" data-page="' +
+      (currentPage - 1) +
+      '"><i class="fas fa-chevron-left"></i></div>'; // Previous button
+  } else {
+    paginationHtml +=
+      '<div class="pagination_button hidden" data-page="' +
+      currentPage +
+      '"><i class="fas fa-chevron-left"></i></div>'; // Hide previous button
+  }
+
+  if (totalPages <= 5) {
+    // If total pages are 5 or fewer, show all pages
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === currentPage) {
+        paginationHtml +=
+          '<div class="pagination_button current" data-page="' +
+          i +
+          '">' +
+          i +
+          '</div>'; // Add "current" class to the current page button
+      } else {
+        paginationHtml +=
+          '<div class="pagination_button" data-page="' +
+          i +
+          '">' +
+          i +
+          '</div>';
+      }
+    }
+  } else {
+    if (currentPage >= 4) {
+      paginationHtml += '<div class="pagination_button" data-page="1">1</div>'; // First page
+      paginationHtml += '<div class="pagination_button three_dots">...</div>'; // Ellipsis
+    }
+
+    if (currentPage > 1) {
+      paginationHtml +=
+        '<div class="pagination_button" data-page="' +
+        (currentPage - 1) +
+        '">' +
+        (currentPage - 1) +
+        '</div>'; // Page before the current page
+    }
+
+    paginationHtml +=
+      '<div class="pagination_button current" data-page="' +
+      currentPage +
+      '">' +
+      currentPage +
+      '</div>'; // Current page
+
+    if (currentPage < totalPages - 3) {
+      const nextTwoPages = currentPage + 2; // Next two pages
+      for (let i = currentPage + 1; i <= nextTwoPages && i <= totalPages; i++) {
+        if (i === currentPage) {
+          paginationHtml +=
+            '<div class="pagination_button current" data-page="' +
+            i +
+            '">' +
+            i +
+            '</div>'; // Add "current" class to the current page button
+        } else {
+          paginationHtml +=
+            '<div class="pagination_button" data-page="' +
+            i +
+            '">' +
+            i +
+            '</div>';
+        }
+      }
+
+      paginationHtml += '<div class="pagination_button three_dots">...</div>'; // Ellipsis
+      paginationHtml +=
+        '<div class="pagination_button" data-page="' +
+        totalPages +
+        '">' +
+        totalPages +
+        '</div>'; // Last page
+    } else {
+      for (let i = currentPage + 1; i <= totalPages; i++) {
+        if (i === currentPage) {
+          paginationHtml +=
+            '<div class="pagination_button current" data-page="' +
+            i +
+            '">' +
+            i +
+            '</div>'; // Add "current" class to the current page button
+        } else {
+          paginationHtml +=
+            '<div class="pagination_button" data-page="' +
+            i +
+            '">' +
+            i +
+            '</div>';
+        }
+      }
+    }
+  }
+
+  if (currentPage < totalPages) {
+    paginationHtml +=
+      '<div class="pagination_button" data-page="' +
+      (currentPage + 1) +
+      '"><i class="fas fa-chevron-right"></i></div>'; // Next button
+  }
+
+  paginationHtml += '</div>';
+
+  $('.homePagination').append(paginationHtml);
+
+  $('.pagination_button').click(function () {
+    const page = $(this).data('page');
+    if (page !== undefined) {
+      myStorage.setItem('currentPage', page);
+      $('.results').empty();
+      $('.results-placeholder-grid').show();
+      populateDiscoverHomeItem({}).then(() => {
+        $('.results-placeholder-grid').hide();
+      });
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  var images = document.querySelectorAll(
+    'img[src*="{IBL_WEB_SKILLS_PLUGIN_URL}"]'
+  );
+  images.forEach(function (img) {
+    img.src = img.src.replace(
+      '{IBL_WEB_SKILLS_PLUGIN_URL}',
+      IBL_WEB_SKILLS_PLUGIN_URL
+    );
+  });
+});
+
+function showNoCredentialsView() {
+  let text = "You haven't earned any credentials yet.";
+  if (fromAdmin() == false) {
+    text = "This user hasn't earned any credentials yet.";
+  }
+  plugin_url = IBL_WEB_SKILLS_PLUGIN_URL;
+  let div = document.createElement('div');
+  div.className = 'no-credentials';
+  div.innerHTML =
+    `<div class="ncd">
+  <img src="` +
+    plugin_url +
+    `/public/images/trophy.png" class="badge_icon" alt="">
+  <div class="no_badges_text">` +
+    text +
+    `
+  </div>
+</div>`;
+  $('.manage-credentials').addClass('hide');
+  $('.user-credentials').addClass('d-block');
+  $('.search-user-cred').addClass('hide');
+  $('.user-credentials').append(div);
+
+  $('.skeleton-cred-box[data-name="credentials"]').hide();
+  $('.user-cred-box-hidden').show();
+}
+
+function formatEarnedOnDate(stringDate) {
+  let options = { day: 'numeric', year: 'numeric', month: 'short' };
+  let date = new Date(stringDate);
+  return date.toLocaleDateString('en-US', options);
+}
+
+function capitalizeWords(arr) {
+  return arr.map((word) => {
+    const firstLetter = word.charAt(0).toUpperCase();
+    const rest = word.slice(1).toLowerCase();
+
+    return firstLetter + rest;
+  });
+}
+
+function pluralizeWord(singularWord, pluralWord, count) {
+  return count > 1 ? pluralWord : singularWord;
+}
+
+function handleSearchUserCredentials() {
+  $('.search-user-credentials').on('input', function (e) {
+    let value = $(this).val();
+
+    if (!value) {
+      $('.cr_row pp .cr_link_box').each(function (index) {
+        $(this).removeClass('hide');
+      });
+    } else {
+      $('.cr_row .cr_link_box').each(function (index) {
+        $(this).addClass('hide');
+      });
+    }
+    let name = '';
+    $('.cr_row .cr_link_box').each(function (index) {
+      name = $(this).find('.text-block-32').html();
+      if (name.toLowerCase().indexOf(value.toLowerCase()) >= 0) {
+        $(this).removeClass('hide');
+      }
+    });
+    let numberOfItems = $('.cr_row .cr_link_box:visible').length;
+    let resultsText = pluralizeWord(
+      ' Credential',
+      ' Credentials',
+      numberOfItems
+    );
+    $('.count-credentials').html(numberOfItems + ' ' + resultsText);
+  });
+}
+
+function populateDiscoverCredentialsData() {
+  window.api.ibldmcredentials.getOrgCredentials(null, function (data) {
+    let results = data.result.data;
+    results.forEach((credential, i) => {
+      let credentialBox = document.createElement('a');
+      credentialBox.className = 'cred_link cr_r w-inline-block';
+      credentialBox.href = home_url() + '/credentials/' + credential.entityId;
+      credentialBox.innerHTML =
+        `<div class="cr_box_flex cr_res">
+                     <img src="` +
+        credential.iconImage +
+        `" loading="lazy"  alt="" class="image-32 cr_res">
+                     <div>
+                        <div class="text-block-32 discover-credential-name">` +
+        credential.name +
+        `</div>
+                        <div class="text-block-33">` +
+        credential.issuerDetails.name +
+        `</div>
+                     </div>
+                  </div>`;
+      $('.cred_res')[0].append(credentialBox);
+      var images = document.querySelectorAll('.image-32.cr_res');
+
+      for (var i = 0; i < images.length; i++) {
+        images[i].addEventListener('error', function () {
+          let plugin_url = IBL_WEB_SKILLS_PLUGIN_URL;
+          let img_url = plugin_url + '/public/images';
+          this.src = img_url + '/default_badge.png';
+        });
+      }
+    });
+    handleSearchDiscoverCredentials();
+  });
+}
+
+function handleSearchDiscoverCredentials() {
+  $('.search-org-cred').on('input', function (e) {
+    let value = $(this).val();
+
+    if (!value) {
+      $('.cred_res .cred_link').each(function (index) {
+        $(this).removeClass('hide');
+      });
+    } else {
+      $('.cred_res .cred_link').each(function (index) {
+        $(this).addClass('hide');
+      });
+    }
+    let name = '';
+    $('.cred_res .cred_link').each(function (index) {
+      name = $(this).find('.discover-credential-name').html();
+      if (name.toLowerCase().indexOf(value.toLowerCase()) >= 0) {
+        $(this).removeClass('hide');
+      }
+    });
+  });
+}
+
+function createCard(item, type) {
+  let plugin_url = IBL_WEB_SKILLS_PLUGIN_URL;
+  let starsClass = 'hide';
+  let skillsClass = 'hide';
+  let div = document.createElement('div');
+  div.className = 'item-box';
+
+  let id = item.course_id;
+  let name = item.display_name;
+  let image = item.course_image_asset_path;
+  let org = item.org;
+  let level = item.level;
+  let duration = item.duration;
+  if (type == 'PATHWAY') {
+    name = item.name;
+    image = item.data.banner_image;
+    id = item.pathway_uuid;
+    org = item.data.org;
+    level = item.data.level;
+    duration = item.data.duration;
+  }
+  if (!org) {
+    org = '';
+  }
+  if (!level) {
+    level = '';
+  }
+  if (!duration) {
+    duration = '';
+  }
+
+  let url = home_url() + '/' + type.toLowerCase() + 's/' + id;
+
+  div.innerHTML =
+    `<a href="` +
+    url +
+    `" class="link-block w-inline-block">
+  <div class="div-block-22">
+     <img src="` +
+    image +
+    `" loading="lazy" alt="" class="image-11">
+     <div class="label c">
+        <div class="text-block-124">` +
+    type +
+    `</div>
+     </div>
+  </div>
+  <div class="item-body">
+     <div class="div-block-23">
+        <div class="div-block-24">
+        <img src="` +
+    item.org_img +
+    `" loading="lazy" alt="" class="image-18"></div>
+        <div class="text-block-16">
+          ` +
+    org +
+    `
+        </div>
+        <div class="div-block-28 ` +
+    skillsClass +
+    `">
+           <div class="text-block-20">120 Skill Coins</div>
+        </div>
+     </div>
+     <div class="text-block-9">` +
+    name +
+    `</div>
+     <div class="div-block-25">
+        <div class="text-block-17"><span class="skill_span">Computer Programming</span> <span class="skill_span">Python Libraries</span><span class="skill_span last">Python Programming</span></div>
+     </div>
+
+       <div class="div-block-26 ` +
+    starsClass +
+    `">
+       <img src="` +
+    plugin_url +
+    `public/images/r_stars.png" loading="lazy" alt="" class="image-19">
+       <div class="text-block-18">(1k+)</div>
+    </div>
+
+    <div class="div-block-27">
+    <div class="text-block-19">
+      ` +
+    (level && duration
+      ? level +
+        ` <span class="bullet"><strong class="bold-text-2">•</strong></span>`
+      : level) +
+    `<strong class="bold-text-2"> ` +
+    (duration ? duration : '') +
+    `</strong>
+    </div>
+    <div class="item_options">
+      <div class="item_options_triger"><img src="https://assets.website-files.com/638f851957f4387958ad215e/638f851957f4382900ad22b0_menu.png" loading="lazy" alt="" class="image-20"></div>
+      <div class="options_div" style="display: none;">
+        <div class="text-block-103">Add to Pathway</div>
+        <div class="text-block-103">Save for Later</div>
+        <div class="text-block-103">Dismiss</div>
+        <div class="text-block-103">Share</div>
+        <div class="text-block-103">Create a Pathway</div>
+      </div>
+    </div>
+  </div>
+  </div>
+</a>`;
+  return div;
+}
+
+function addItemBox(data, itemRow) {
+  data = data.data;
+  let id = '';
+  let a = document.createElement('a');
+  let link = '';
+  let name = '';
+  let level = '';
+  let duration = '';
+  let price = '';
+  let tag = '';
+  let format = '';
+  let productID = '';
+  let courseFormat = '';
+  let edxData = '';
+  let cert_text = '';
+
+  if (data?.edx_data) {
+    edxData = data.edx_data;
+  }
+  if (itemRow == 'courses-in-progress' || itemRow == 'completed-courses') {
+    data = data[0];
+    if (data.edx_data) {
+      edxData = data.edx_data;
+    }
+
+    if (edxData.self_paced) {
+      courseFormat = 'Self-paced';
+    } else {
+      courseFormat = 'Instructor-Led';
+    }
+    link = home_url() + '/courses/course?course_id=' + data.course_key;
+    name = data.name;
+    if (data.data) {
+      let itemData = JSON.parse(data.data);
+      if (itemData.tags) {
+        tag = itemData.tags[0];
+      }
+      if (itemData.format) {
+        format = itemData.format;
+      }
+      duration = edxData.duration || '';
+      level = itemData.level || '';
+      duration = itemData.duration || '';
+      link = home_url() + '/courses/course?course_id=' + data.course_id;
+    }
+    id = data.course_id;
+    price = data.course_price || '';
+  } else if (itemRow == 'my-pathways') {
+    link = home_url() + '/pathways/' + data.pathway_uuid;
+    let pathwayData = data.data;
+    if (pathwayData) {
+      level = pathwayData.level || '';
+      duration = pathwayData.duration || '';
+      price = pathwayData.price || '';
+    }
+    name = data.name;
+    id = data.pathway_uuid;
+  } else if (
+    itemRow == 'all' ||
+    itemRow == 'recommended' ||
+    itemRow == 'promotion featured' ||
+    itemRow == 'promotion new' ||
+    itemRow == 'all-training' ||
+    itemRow == 'Accelerated Computing'
+  ) {
+    if (edxData && edxData.self_paced) {
+      courseFormat = 'Self-paced';
+    } else {
+      courseFormat = 'Instructor-Led';
+    }
+
+    name = data.name;
+    if (data.data) {
+      let itemData = data.data;
+      productID = itemData.product_id;
+      if (itemData.tags) {
+        tag = itemData.tags[0];
+      }
+      if (itemData.format) {
+        format = itemData.format;
+      }
+      if (itemData.certificate_type) {
+        cert_text = 'Certificate Available';
+      }
+
+      let edxData = '';
+      if (data.edx_data) {
+        edxData = data.edx_data;
+      }
+      duration = '';
+      if (edxData && edxData.duration) {
+        duration = edxData.duration;
+      }
+
+      level = itemData.level || '';
+      link = home_url() + '/courses/course-detail?course_id=' + data.course_id;
+    }
+    id = data.course_id;
+  }
+
+  $(a).attr('href', link);
+
+  a.className = 'Rectangle-1';
+  a.setAttribute('data-id', id);
+  a.setAttribute('data-format', courseFormat);
+  a.innerHTML =
+    `<div class="rec-top">
+    <div class="top-tabs">
+    <span data-type=${courseFormat} class="Platform-Overview">${courseFormat}</span>
+</div>
+
+<div class="name">` +
+    name +
+    `</div>
+  </div>
+  <div class="rec-bot">
+                <div data-name="price">` +
+    price +
+    `</div>
+                <div>` +
+    duration +
+    `</div>
+    
+              </a>`;
+
+  //item row replace space with -
+  itemRow = itemRow.replace(/\s+/g, '-');
+
+  $('.' + itemRow).append(a);
+  populateCardCoursePrice(id, productID);
+}
+
+function populateCourseSliders(tag) {
+  if ($(`[data-name="${tag}"]`).length == 0) {
+    return;
+  }
+
+  let data =
+    '?filter={"_index": "ibl-dm.public.dl_catalog_app_course"}&facet_search=["' +
+    tag +
+    '"]';
+  orgSearch(data, function (data) {
+    let results = data.results;
+    if (results.length == 0) {
+      showEmptyState(tag);
+      return;
+    }
+    $(results).each(function (index) {
+      addItemBox(this, tag);
+    });
+    showHideArrows(tag);
+  });
+}
+
+let currentOffset = 0;
+$('body').on('click', '.left_arrow, .right_arrow', function () {
+  let direction = $(this).hasClass('left_arrow') ? 'left' : 'right';
+  let parentName = $(this).parent().data('name');
+  const sliderWrapper = $('.slider-cont.ft-cont');
+  const slider = $(`.course_slider[data-name=${parentName}]`);
+  const slideWidth = slider.find('.Rectangle-1').first().outerWidth(true) + 20;
+  const totalSlidesWidth = slideWidth * slider.find('.Rectangle-1').length;
+  const sliderWidth = slider.width();
+
+  if (direction === 'right') {
+    console.log(
+      'Right of wrapper ',
+      sliderWrapper[0].getBoundingClientRect().right
+    );
+    console.log(
+      'Right of last rectangle ',
+      slider.find('.Rectangle-1').last()[0].getBoundingClientRect().right
+    );
+    if (
+      sliderWrapper[0].getBoundingClientRect().right >
+        slider.find('.Rectangle-1').last()[0].getBoundingClientRect().right &&
+      !$('#loadMoreCourses').length &&
+      coursesHaveNext
+    ) {
+      slider.append(`<a class="Rectangle-1" href="#" id="loadMoreCourses"> <div style="height: 100%; display: flex; align-items: center; justify-content: center" class="loader-wrapper">
+      <i class="fas fa-circle-notch fa-2x fa-spin" style="color: #76b900"></i>
+    </div></a>`);
+      this.click();
+      populateUserCourses(true);
+    }
+    const maxRightOffset = -(totalSlidesWidth - sliderWidth);
+    if (currentOffset > maxRightOffset) {
+      currentOffset -= slideWidth;
+      currentOffset = Math.max(currentOffset, maxRightOffset);
+    }
+  } else if (direction === 'left' && currentOffset < 0) {
+    currentOffset += slideWidth;
+    currentOffset = Math.min(currentOffset, 0);
+  } else {
+    return;
+  }
+  slider.css('transform', `translateX(${currentOffset}px)`);
+});
+
+function getParameterByName(name, url) {
+  if (!url) url = window.location.href;
+  name = name.replace(/[\[\]]/g, '\\$&');
+  var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+    results = regex.exec(url);
+  if (!results) return null;
+  if (!results[2]) return '';
+  return results[2];
+}
+
+function add_invitation_button() {
+  let div = document.createElement('div');
+  div.className = 'button w-button disabled_btn';
+  div.innerText = 'By Invitation Only';
+  $('.course-cta').append(div);
+}
+
+function populateUserMeta() {
+  const userData = JSON.parse(localStorage.getItem('userData'));
+  window.api.ibledxusers.getUsersManageMetadata(
+    { username: userData['user_nicename'] },
+    function (user) {
+      let name = user.name;
+      let first_name = name.split(' ')[0];
+      let last_name = name.split(' ')[1];
+      let bio = user.bio;
+      $('.first_name').text(first_name);
+      $('.last_name').text(last_name);
+      $('.bio').text(bio);
+    }
+  );
+}
+
+function searchOrg(data, callback) {
+  let url = IBL_SEARCH_URL;
+
+  $.ajax({
+    url: url,
+    method: 'GET', // HTTP method (GET, POST, etc.)
+    success: function (data) {
+      callback(data);
+    },
+    error: function (xhr, status, error) {
+      // This function is executed if the request fails
+      console.error(error);
+    },
+  });
+}
+
+function populateLinks() {
+  let id = getParameterByName('course_id');
+  $('[data-name="course-link"]').attr(
+    'href',
+    home_url() + '/courses/course?course_id=' + id
+  );
+  $('[data-name="progress-link"]').attr(
+    'href',
+    home_url() + '/courses/progress?course_id=' + id
+  );
+}
+
+function showEmptyState(slider) {
+  $('.course_slider[data-name="' + slider + '"]').hide();
+  $('.c_right[data-name="' + slider + '"]').hide();
+  $('.empty-state[data-name="' + slider + '"]').css('display', 'flex');
+}
+
+function showHideArrows(sliderName) {
+  sliderName = sliderName.replace(/\s+/g, '-');
+  let sliderWidth = 0;
+  let containerWidth = 0;
+  let totalSlidesWidth = 0;
+  let slideWidth = 0;
+  let slider = $(`.course_slider[data-name=${sliderName}]`);
+  sliderWidth = slider.width();
+  containerWidth = slider.parent().width();
+  slideWidth = slider.find('.Rectangle-1').first().outerWidth(true);
+  totalSlidesWidth = slideWidth * slider.find('.Rectangle-1:visible').length;
+  if (totalSlidesWidth > containerWidth) {
+    $('.c_right[data-name="' + sliderName + '"]').css('display', 'flex');
+  } else {
+    $('.c_right[data-name="' + sliderName + '"]').hide();
+  }
+}
+
+function orgSearch(data, callback) {
+  let url = IBL_SEARCH_URL + '/api/search/search/' + data;
+  $.ajax({
+    url: url,
+    method: 'GET',
+    success: function (data) {
+      callback(data);
+    },
+    error: function (xhr, status, error) {
+      // This function is executed if the request fails
+      console.error(error);
+    },
+  });
+}
+
+function searchGetCourseMeta(data, callback) {
+  let path =
+    '?detail_indice={"_index":"ibl-dm.public.dl_catalog_app_course"}&detail_scope={"course_id":"' +
+    data +
+    '"}';
+  let url = IBL_SEARCH_URL + '/api/search/search/' + path;
+  $.ajax({
+    url: url,
+    method: 'GET',
+    success: function (data) {
+      callback(data);
+    },
+    error: function (xhr, status, error) {
+      // This function is executed if the request fails
+      console.error(error);
+    },
+  });
+  // window.api.ibldmsearch.searchCatalog(data, 'courses', (_data) => {
+  //   callback(_data.results);
+  // });
+}
+
+function new_populateCardCoursePrice(course_id, product_id) {
+  data = {
+    course_id,
+  };
+  window.api.dliedxcourses.getCoursePrice(
+    data,
+    function (data) {
+      let price = 'N/A';
+      if (data && data.price) {
+        price = data.price;
+      }
+      $('.Rectangle-1[data-id="' + course_id + '"] [data-name="price"]').text(
+        price
+      );
+    },
+    () => {
+      $('.Rectangle-1[data-id="' + course_id + '"] [data-name="price"]').text(
+        'N/A'
+      );
+    }
+  );
+}
+
+function populateCardCoursePrice(course_id, product_id) {
+  addIDSItemBox;
+  data = {
+    product_id: product_id,
+  };
+
+  if (!product_id) {
+    $('.Rectangle-1[data-id="' + course_id + '"] [data-name="price"]').text(
+      'Free'
+    );
+    return;
+  }
+
+  // Check if product_id already includes "en_us/USD"
+  if (!product_id.startsWith('en_us/USD')) {
+    product_id = 'en_us/USD/' + product_id;
+  }
+  let url =
+    'https://pricing-api.courses.nvidia.com/prod/api/v1.0/products/' +
+    product_id;
+  // Make a fetch request
+  $.ajax({
+    url: url,
+    method: 'GET',
+    contentType: 'application/json',
+    success: function (data) {
+      let price = 'Free';
+      if (
+        data.products &&
+        data.products.length > 0 &&
+        data.products[0].product &&
+        data.products[0].product.price
+      ) {
+        price = data.products[0].product.price;
+      }
+      $('.Rectangle-1[data-id="' + course_id + '"] [data-name="price"]').text(
+        price
+      );
+    },
+    error: function (xhr, status, error) {
+      console.error(error);
+    },
+  });
+}
+
+function getParentDomain(domain) {
+  if (!domain) {
+    return '';
+  }
+  const parts = domain.split('.');
+  return parts.length > 1 ? `.${parts.slice(-2).join('.')}` : domain;
+}
+
+function clearCookies() {
+  const cookies = document.cookie.split(';');
+  for (let i = 0; i < cookies.length; i++) {
+    const cookie = cookies[i];
+    const eqPos = cookie.indexOf('=');
+    const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;Domain=${getParentDomain(
+      window.location.hostname
+    )}`;
+  }
+}
+
+function initiateLogout(successCb, errorCb) {
+  fetch(`${IBL_LMS_URL}/logout`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+    .then((data) => {
+      console.log('On logout success, data ', data);
+      localStorage.clear();
+      clearCookies();
+      successCb && successCb();
+    })
+    .catch((error) => {
+      console.error('On logout error, error ', error);
+      localStorage.clear();
+      clearCookies();
+      errorCb && errorCb();
+    });
+}
+
+function addMenuHandler() {
+  handleMenuVisibility();
+  $(document).on('click', '.left_nav.nav_flex', function (event) {
+    $('.menu-dropdown').toggleClass('active');
+    event.stopPropagation();
+  });
+
+  $(document).on('click', function (event) {
+    const $target = $(event.target);
+
+    if (
+      !$target.closest('.left_nav.nav_flex').length &&
+      !$target.closest('.menu-dropdown').length
+    ) {
+      $('.menu-dropdown').removeClass('active');
+    }
+  });
+
+  $(document).on('click', '.logout_btn', function (event) {
+    initiateLogout(logOut);
+  });
+}
+
+function addMenuActiveClass(menu) {
+  $('.nav-link[data-name="' + menu + '"]').addClass('active');
+}
+
+function removeSubdomains() {
+  const hostname = window.location.hostname;
+  const parts = hostname.split('.');
+  if (parts.length > 2) {
+    parts.shift();
+    return parts.join('.');
+  } else {
+    return parts.join('.');
+  }
+}
+
+function addMatomoScript() {
+  let base_domain = removeSubdomains();
+
+  let userData = JSON.parse(localStorage.getItem('userData'));
+  if (!userData) {
+    return;
+  }
+  let userId = userData ? userData.user_nicename : '';
+  let axd_url = IBL_MATOMO_URL;
+  let current_tenant = JSON.parse(localStorage.getItem('current_tenant'));
+  let org = current_tenant ? current_tenant.org || 'main' : '';
+  if (org === 'main') {
+    org = 1;
+  }
+
+  var scriptContent = `
+  var _paq = window._paq = window._paq || [];
+  _paq.push(['setCookieDomain', '*.${base_domain}']);
+  _paq.push(['setDomains', '*.${base_domain}']);
+  ${userId ? `_paq.push(['setUserId', '${userId}']);` : ''}
+  _paq.push(['trackPageView']);
+  _paq.push(['trackAllContentImpressions']);
+  _paq.push(['trackVisibleContentImpressions']);
+  _paq.push(['enableHeartBeatTimer']);
+  (function() {
+      var u = "${axd_url}/matomo.php";
+      _paq.push(['setTrackerUrl', u]);
+      _paq.push(['setSiteId', '${org}']);
+      var d = document,
+          g = d.createElement('script'),
+          s = d.getElementsByTagName('script')[0];
+      g.async = true;
+      g.src = u.replace(/\.php$/, '.js');
+      s.parentNode.insertBefore(g, s);
+  })();
+`;
+
+  var scriptElement = document.createElement('script');
+  scriptElement.type = 'text/javascript';
+  scriptElement.textContent = scriptContent;
+  document.head.appendChild(scriptElement);
+}
+
+function debounce(func, wait) {
+  let timeout;
+  return function () {
+    const context = this,
+      args = arguments;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(context, args), wait);
+  };
+}
+
+function handleMenuVisibility() {
+  const $divBlock = $('.nav_bot .div-block');
+  const $moreMenu = $divBlock.find('.more-menu');
+
+  if ($moreMenu.length === 0) {
+    return;
+  }
+
+  const $hTrigger = $divBlock.find('.nav-option.h-trigger');
+
+  $moreMenu.children().appendTo($divBlock);
+  $moreMenu.empty();
+
+  let isOverflowing = false;
+
+  if ($divBlock[0].scrollWidth > $divBlock.innerWidth()) {
+    $($divBlock.children().not('.more-menu, .h-trigger').get().reverse()).each(
+      function () {
+        const $child = $(this);
+        const childLeftPosition =
+          window.innerWidth < 2000 ? $child.position().left : 0;
+        if (
+          childLeftPosition +
+            (window.innerWidth < 900 ? $child.outerWidth() : 0) >
+          $divBlock.innerWidth()
+        ) {
+          $child.detach().prependTo($moreMenu);
+          isOverflowing = true;
+        }
+      }
+    );
+  }
+
+  if (isOverflowing) {
+    $hTrigger.removeClass('hidden').addClass('show');
+  } else {
+    $hTrigger.removeClass('show').addClass('hidden');
+    $moreMenu.hide();
+  }
+  $hTrigger.appendTo($divBlock);
+}
+
+$(window).on('resize', debounce(handleMenuVisibility, 250));
+
+function submitDLIEvetForm() {
+  var input = document.querySelector('#event_code');
+  var code_value = $(input).val();
+  if (code_value == '') {
+    var error_msg = 'Event code is required.';
+    show_error_code(error_msg);
+  } else {
+    submit_dli_event_form(code_value);
+  }
+}
+
+function submitDLIRedemptionForm() {
+  var input = document.querySelector('#redemption_code');
+  var code_value = $(input).val();
+  if (code_value == '') {
+    var error_msg = 'Redemption code is required.';
+    show_error_code_for_redemption(error_msg);
+  } else {
+    submit_dli_redemption_form(code_value);
+  }
+}
+
+function show_error_code_for_redemption(error_msg) {
+  $('#redemption_code')[0].style.borderColor = '#bd2b41';
+  $('.dli_form_error').html(error_msg);
+}
+
+function show_error_code(error_msg) {
+  $('#event_code')[0].style.borderColor = '#bd2b41';
+  $('.dli_form_error').html(error_msg);
+}
+
+function submit_dli_event_form(code_value) {
+  let token = localStorage.getItem('axd_token');
+  if (!token) {
+    let current_path = encodeURIComponent(
+      window.location.pathname + window.location.search
+    );
+    //add a ? at the end of the current path if it doesn't have one
+    if (current_path[current_path.length - 1] != '?') {
+      current_path += '?';
+    }
+    window.location.href = IBL_SSO_URL('login');
+  }
+
+  let data = {
+    event_code: code_value,
+  };
+
+  // New POST request to the specified URL
+  fetch(`${IBL_DM_URL}/api/dli-core/event-enrollment/portal/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Token ${localStorage.getItem('dm_token')}`, // Include token if needed
+    },
+    body: JSON.stringify(data),
+  })
+    .then((response) => {
+      if (response.ok) {
+        return response.json();
+      } else {
+        throw new Error('Network response was not ok');
+      }
+    })
+    .then((responseData) => {
+      if (responseData.redirect) {
+        window.location.href = responseData.redirect; // Redirect to the provided URL
+      } else {
+        window.location.href = '/'; // Redirect to home if no redirect URL is provided
+      }
+    })
+    .catch((error) => {
+      console.error('There was a problem with the fetch operation:', error);
+      window.location.href = '/dli-event-error'; // Redirect to error page on failure
+    });
+}
+
+function submit_dli_redemption_form(code_value) {
+  let token = localStorage.getItem('axd_token');
+  if (!token) {
+    let current_path = encodeURIComponent(
+      window.location.pathname + window.location.search
+    );
+    //add a ? at the end of the current path if it doesn't have one
+    if (current_path[current_path.length - 1] != '?') {
+      current_path += '?';
+    }
+    window.location.href = IBL_SSO_URL('login');
+  }
+
+  let data = {
+    code: code_value,
+  };
+
+  let courseId = getParameterByName('course_id');
+  let encodedCourseId = encodeURIComponent(courseId);
+  window.location.href = `${IBL_LMS_URL}/dli/enrollment/promo_code/?code=${code_value}&course_id=${encodedCourseId}`;
+}
+
+$('.watch-video').on('click', function () {
+  let url = $(this).data('url');
+  $('.video-iframe iframe').attr('src', url);
+  $('.popupOverlay').addClass('active');
+  $('.video-iframe').addClass('active');
+  $('body').addClass('no-scroll');
+});
+
+$('.popupOverlay').on('click', function (e) {
+  if (e.target == this) {
+    $('.popupOverlay').removeClass('active');
+    $('.video-iframe').removeClass('active');
+    $('body').removeClass('no-scroll');
+    $('.video-iframe iframe').attr('src', '');
+  }
+});
+
+$('.close-iframe').on('click', function () {
+  $('.popupOverlay').removeClass('active');
+  $('.video-iframe').removeClass('active');
+  $('body').removeClass('no-scroll');
+  $('.video-iframe iframe').attr('src', '');
+});
+
+function add_course_links() {
+  let course_id =
+    getParameterByName('course_id') || localStorage.getItem('course_id');
+  const linksData = {
+    'course-link': '/courses/course?course_id=',
+    forum: '/courses/discussion/forum?course_id=',
+    instructor: '/courses/instructor?course_id=',
+    notes: '/courses/notes?course_id=',
+    bookmarks: '/courses/bookmarks?course_id=',
+    updates: '/courses/updates?course_id=',
+    'progress-link': '/courses/progress?course_id=',
+  };
+  for (const dataName in linksData) {
+    const href = home_url() + linksData[dataName] + course_id;
+    $('[data-name="' + dataName + '"]').attr('href', href);
+  }
+}
+
+$(document).on('click', '.anchor', function (e) {
+  let name = $(this).data('name');
+  $('.details-menu a, .training-menu a').removeClass('active');
+  $('.anchor').removeClass('active');
+  $(this).addClass('active');
+  $('html, body').animate(
+    {
+      scrollTop: $('#' + name).offset().top - 150,
+    },
+    1000
+  );
+  e.preventDefault();
+});
+
+function secondsToHoursAndMinutes(_seconds) {
+  const hours = Math.floor(_seconds / 3600);
+  const minutes = Math.floor((_seconds % 3600) / 60);
+  const seconds = _seconds % 60;
+
+  const formattedHours = hours < 10 ? `0${hours}` : hours;
+  const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
+
+  return `${formattedHours}:${formattedMinutes}`;
+}
+
+function searchGetCourseMetaPromise(data) {
+  return new Promise((resolve, reject) => {
+    let path =
+      '?detail_indice={"_index":"ibl-dm.public.dl_catalog_app_course"}&detail_scope={"course_id":"' +
+      data +
+      '"}';
+    let url = IBL_SEARCH_URL + '/api/search/search/' + path;
+    $.ajax({
+      url: url,
+      method: 'GET',
+      success: resolve,
+      error: (xhr, status, error) => reject(error),
+    });
+  });
+}
+
+function isEmptySection(section, count) {
+  if (count === 0) {
+    showEmptyState(section);
+  }
+
+  if (section == 'courses-in-progress') {
+    $('.n-row span[data-name="courses-in-progress"]').text(count);
+  }
+}
+
+function DSSearchExec(
+  tag,
+  search = null,
+  pace = null,
+  multiple = null,
+  pageSize = 12,
+  page = 1,
+  sectionSelector = null
+) {
+  // Base data object for API call
+  let data = {
+    limit: pageSize,
+    content: 'courses',
+  };
+
+  if (search) {
+    data['query'] = search;
+  }
+
+  data = { ...parseQueryParams(), ...data };
+
+  // Parse the tag string to get all parameters dynamically
+  if (tag) {
+    const params = tag.split(',');
+    params.forEach((param) => {
+      const [key, value] = param.split('=');
+      if (key && value) {
+        data[key.trim()] = value.trim();
+      }
+    });
+  }
+
+  // Add courseformat based on pace parameter
+  if (pace) {
+    data['courseformat'] = pace;
+  }
+
+  // Handle pagination
+  if (page > 1) {
+    data['offset'] = pageSize * (page - 1);
+  }
+
+  let $targetDiv;
+  if (multiple) {
+    $targetDiv = $(
+      'div[data-type="d-section"][data-multiple="' + multiple + '"]'
+    );
+  } else if (pace) {
+    $targetDiv = $('div[data-type="d-section"][data-pace="' + pace + '"]');
+  } else {
+    $targetDiv = $('div[data-type="d-section"][data-tag="' + tag + '"]');
+  }
+
+  $targetDiv.empty();
+  data['content'] = 'courses';
+  window.api.ibldmsearch.searchCatalog(data, function (data) {
+    let results = data.results;
+    $(results).each(function (index) {
+      addIDSItemBox(this, tag, pace, multiple);
+    });
+
+    const total_results = data.total_results || data.count;
+    if (page * pageSize < total_results) {
+      const seeMoreBtn = $(`<span class="see_more next-pagination">
+                  See More <i class="fas fa-chevron-right"></i>
+                </span>`);
+      seeMoreBtn.on('click', () => {
+        DSSearchExec(
+          tag,
+          search,
+          pace,
+          multiple,
+          pageSize,
+          page + 1,
+          sectionSelector
+        );
+        $targetDiv.siblings('.see_more.next-pagination').remove();
+      });
+      if (!$targetDiv.is('[data-paginate]')) {
+        $targetDiv.after(seeMoreBtn);
+      }
+    }
+    const num_pages = data?.num_pages || data?.total_pages;
+    if (num_pages === page || !num_pages) {
+      $(sectionSelector).next('.next-pagination').hide();
+    }
+  });
+}
+
+function populateDS(
+  tag,
+  search = null,
+  pace = null,
+  multiple = null,
+  pageSize = 12,
+  page = 1,
+  sectionSelector = null
+) {
+  //replace comma with quotes comma quotes
+  DSSearchExec(tag, search, pace, multiple, pageSize, page, sectionSelector);
+}
+
+function handleDSSeeMore(pageSize = 12) {
+  let currentFrontPage = 1;
+
+  $('.next-pagination').on('click', function () {
+    const parentSection = $(this).prev("[data-type='d-section']");
+    let tag = parentSection.attr('data-tag');
+    let search = parentSection.attr('data-search');
+    let pace = parentSection.attr('data-pace');
+    let multiple = parentSection.attr('data-multiple');
+    currentFrontPage++;
+    if (tag) {
+      DSSearchExec(
+        tag,
+        search,
+        pace,
+        multiple,
+        pageSize,
+        currentFrontPage,
+        parentSection
+      );
+    }
+  });
+}
+
+function addIDSItemBox(data, itemRow, pace = null, multiple = null) {
+  // Ensure data exists and has expected structure
+  if (!data || !data.data) {
+    console.warn('Invalid data structure passed to addIDSItemBox');
+    return;
+  }
+
+  data = data.data;
+  let id = '';
+  let a = document.createElement('a');
+  let link = '';
+  let name = '';
+  let level = '';
+  let duration = '';
+  let price = '';
+  let tag = '';
+  let format = '';
+  let productID = '';
+  let courseFormat = '';
+  let cert_text = '';
+  let edxData = '';
+
+  // Check if edx_data exists before accessing
+  if (data.edx_data) {
+    edxData = data.edx_data;
+  }
+
+  // Set courseFormat based on edxData
+  courseFormat =
+    edxData && edxData.self_paced ? 'Self-paced' : 'Instructor-Led';
+
+  // Safely access name - check both direct data and _source
+  name = data.name || 'Untitled Course';
+
+  // Process source data if available
+  if (data.data) {
+    let itemData = data.data;
+    productID = itemData.product_id;
+    tag = itemData.tags ? itemData.tags[0] : '';
+    format = itemData.format || '';
+    level = itemData.level || '';
+
+    // Process edx data
+    if (data.edx_data) {
+      let courseEdxData = data.edx_data;
+      duration = courseEdxData.duration || '';
+    }
+
+    link = home_url() + '/courses/course-detail?course_id=' + data.course_id;
+    cert_text = itemData.certificate_type ? 'Certificate Available' : '';
+    id = data.course_id;
+  }
+
+  if (data.data) {
+    link = home_url() + '/courses/course-detail?course_id=' + data.course_id;
+    id = data.course_id;
+  }
+  $(a).attr('href', link);
+
+  // if ((itemRow == 'self_paced=true', 'audit_allowed=true', 'language en')) {
+  //   a.setAttribute('target', '_blank');
+  // }
+
+  a.className = 'Rectangle-1';
+  a.setAttribute('data-id', id);
+  a.setAttribute('data-format', courseFormat);
+  a.innerHTML =
+    `<div class="rec-top">
+    <div class="top-tabs">
+    <span data-type=${courseFormat} class="Platform-Overview">${courseFormat}</span>
+</div>
+
+<div class="name">` +
+    name +
+    `</div>
+  </div>
+  <div class="rec-bot">
+                <div data-name="price">` +
+    price +
+    `</div>
+                <div>` +
+    duration +
+    `</div>    
+              </a>`;
+
+  //replace quotes comma quotes with comma
+  itemRow = itemRow.replace(/","/g, ',');
+  var $targetDiv;
+  if (multiple) {
+    $targetDiv = $(
+      'div[data-type="d-section"][data-multiple="' + multiple + '"]'
+    );
+  } else if (pace) {
+    $targetDiv = $('div[data-type="d-section"][data-pace="' + pace + '"]');
+  } else {
+    $targetDiv = $('div[data-type="d-section"][data-tag="' + itemRow + '"]');
+  }
+  $targetDiv.append(a);
+  new_populateCardCoursePrice(id, productID);
+}
+function populateDBox(id) {
+  searchGetCourseMeta(id, function (data) {
+    addIDB(data.results[0], id);
+  });
+}
+
+function addIDB(data, itemRow) {
+  let id = '';
+  let a = document.createElement('a');
+  let link = '';
+  let name = '';
+  let level = '';
+  let duration = '';
+  let price = '';
+  let tag = '';
+  let format = '';
+  let productID = '';
+  let courseFormat = '';
+  let edxData = '';
+  let cert_text = '';
+  if (data._source && data._source.edx_data) {
+    edxData = JSON.parse(data._source.edx_data);
+  }
+  if (edxData.self_paced) {
+    courseFormat = 'Self-paced';
+  } else {
+    courseFormat = 'Instructor-Led';
+  }
+  name = data._source.name;
+  if (data._source.data) {
+    let itemData = JSON.parse(data._source.data);
+    productID = itemData.product_id;
+    if (itemData.tags) {
+      tag = itemData.tags[0];
+    }
+    if (itemData.format) {
+      format = itemData.format;
+    }
+
+    let edxData = '';
+    if (data._source && data._source.edx_data) {
+      edxData = JSON.parse(data._source.edx_data);
+    }
+    duration = edxData.duration || '';
+
+    level = itemData.level || '';
+    link =
+      home_url() + '/courses/course-detail?course_id=' + data._source.course_id;
+
+    if (itemData.certificate_type) {
+      cert_text = 'Certificate Available';
+    }
+  }
+
+  id = data._source.course_id;
+
+  $(a).attr('href', link);
+  a.className = 'Rectangle-1';
+  a.setAttribute('data-id', id);
+  a.setAttribute('data-format', courseFormat);
+
+  a.innerHTML =
+    `<div class="rec-top">
+    <div class="top-tabs">
+    <span data-type=${courseFormat} class="Platform-Overview">${courseFormat}</span>
+</div>
+
+<div class="name">` +
+    name +
+    `</div>
+  </div>
+  <div class="rec-bot">
+                <div data-name="price">` +
+    price +
+    `</div>
+                <div>` +
+    duration +
+    `</div>
+              </a>`;
+
+  //replace quotes comma quotes with comma
+  itemRow = itemRow.replace(/","/g, ',');
+  var $targetDiv = $('.dynamic-box[data-id="' + itemRow + '"]');
+  $targetDiv.append(a);
+  populateCardCoursePrice(id, productID);
+}
+
+function handleCloseUnibrow(event) {
+  event.preventDefault();
+  $('#unibrow-container').addClass('hide-unibrow');
+  $('.w-unibrow').removeClass('w-unibrow');
+  $('.w_unib').removeClass('w_unib');
+}
+
+$(document).on('click', '.top-mobile-menu-btn .fas.fa-bars', function () {
+  $('.fa-times').toggleClass('hidden');
+  $('.fa-bars').toggleClass('hidden');
+  $('.top-mobile-menu').toggleClass('active');
+  $('body').toggleClass('no-scroll');
+});
+
+$(document).on('click', function (event) {
+  if (!$(event.target).closest('.nv-l-menu').length) {
+    $('.nv-l-menu').removeClass('active');
+  }
+});
+
+$(document).on('click', '.nv-l-menu', function (event) {
+  if ($(event.target).hasClass('top_l_options')) {
+    if ($(this).hasClass('active')) {
+      $(this).removeClass('active');
+    } else {
+      $('.nv-l-menu').removeClass('active');
+      $(this).addClass('active');
+    }
+  }
+});
+
+$(document).on('click', '.nv-menu-button.menu-level-2', function (e) {
+  // $(".nv-menu-button.menu-level-2").removeClass("active");
+  // $(this).toggleClass("active");
+
+  //if .nv-menu-button.menu-level-2 has active class, remove it
+  if ($(this).hasClass('active')) {
+    $(this).removeClass('active');
+    $('.menu3-container').removeClass('active');
+  } else {
+    $('.nv-menu-button.menu-level-2').removeClass('active');
+    $(this).addClass('active');
+    var parentLi = $(this).closest('.nv-menu-item');
+    var index = $('.nv-menu-item').index(parentLi);
+
+    $('.three-lvl-tab').removeClass('active');
+    $('.three-lvl-tab').eq(index).addClass('active');
+
+    //add active class to menu3-container if not present
+    if (!$('.menu3-container').hasClass('active')) {
+      $('.menu3-container').addClass('active');
+    }
+  }
+});
+
+$(document).on('click', '.m-w-sub', function (event) {
+  var $target = $(event.target);
+  var $this = $(this);
+  if (
+    ($target.hasClass('small-nav_link') &&
+      $target.closest('.m-w-sub').is($this)) ||
+    ($target.closest('.small-nav_link').length &&
+      $target.closest('.m-w-sub').is($this))
+  ) {
+    if ($this.hasClass('active')) {
+      $this.removeClass('active');
+      $this
+        .find('> a > .dr-chevron')
+        .removeClass('fa-chevron-up')
+        .addClass('fa-chevron-down');
+    } else {
+      $('.m-w-sub').removeClass('active');
+      $this.addClass('active');
+      // Toggle the arrow icon to up arrow only for Products
+      $this
+        .find('> a > .dr-chevron')
+        .removeClass('fa-chevron-down')
+        .addClass('fa-chevron-up');
+    }
+  }
+});
+
+$(document).on('click', '.menu-level-2.row-2.grid-item', function (event) {
+  $(this).next().children('ul').toggleClass('hide');
+
+  $(this).find('.dr-chevron').toggleClass('fa-chevron-down fa-chevron-up');
+});
+
+$(document).on('click', '.p-tab', function () {
+  let name = $(this).attr('data-name');
+  $('.p-tab.active').removeClass('active');
+  $(this).addClass('active');
+  $('.p-panel.active').removeClass('active');
+  $(".p-panel[data-name='" + name + "']").addClass('active');
+});
+
+$(document).on('click', '.p-tab-event', function () {
+  let name = $(this).attr('data-name');
+  $('.p-tab-event.active').removeClass('active');
+  $(this).addClass('active');
+  $('.p-panel-event.active').removeClass('active');
+  $(".p-panel-event[data-name='" + name + "']").addClass('active');
+});
+
+$('.share').click(function () {
+  $(this).parent('.tab-share-cont').toggleClass('active');
+});
+
+$(document).on('click', function (event) {
+  if (!$(event.target).closest('.tab-share-cont').length) {
+    $('.tab-share-cont').removeClass('active');
+  }
+});
+
+$('.link.facebook').click(function () {
+  var url = $(this)
+    .closest('.share-options')
+    .find('.clipboardBtn')
+    .data('clipboard-text');
+  openWindow(
+    'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url)
+  );
+});
+
+// Function to handle LinkedIn share
+$('.link.linkedin').click(function () {
+  var url = $(this)
+    .closest('.share-options')
+    .find('.clipboardBtn')
+    .data('clipboard-text');
+  openWindow(
+    'https://www.linkedin.com/sharing/share-offsite/?url=' +
+      encodeURIComponent(url)
+  );
+});
+
+// Function to handle Twitter share
+$('.link.twitter').click(function () {
+  var url = $(this)
+    .closest('.share-options')
+    .find('.clipboardBtn')
+    .data('clipboard-text');
+  openWindow('https://twitter.com/intent/tweet?url=' + encodeURIComponent(url));
+});
+
+// Function to handle Copy Link
+$('.link.copy-link').click(function () {
+  var url = $(this).data('clipboard-text');
+  var tempInput = $('<input>');
+  $('body').append(tempInput);
+  tempInput.val(url).select();
+  document.execCommand('copy');
+  tempInput.remove();
+  $(this)
+    .closest('.share-options')
+    .find('.copy-link-msg')
+    .removeClass('hide')
+    .fadeIn()
+    .delay(1500)
+    .fadeOut();
+});
+
+// Function to open a new window with specified dimensions
+function openWindow(url) {
+  var width = 600;
+  var height = 400;
+  var left = (screen.width - width) / 2;
+  var top = (screen.height - height) / 2;
+  window.open(
+    url,
+    '_blank',
+    'width=' + width + ', height=' + height + ', top=' + top + ', left=' + left
+  );
+}
+
+$(document).ready(function () {
+  var url = window.location.href;
+  var section = getUrlParameter('section');
+  var tab = getUrlParameter('tab');
+
+  if (section) {
+    var $section = $('[data-name="' + section + '"]');
+    if ($section.length) {
+      $('html, body').animate(
+        {
+          scrollTop: $section.offset().top,
+        },
+        500
+      );
+    }
+  }
+
+  if (tab) {
+    var $tab = $(
+      '.p-tab-event[data-name="' + tab + '"], .p-tab[data-name="' + tab + '"]'
+    );
+    if ($tab.length) {
+      $tab.click();
+    }
+  }
+
+  function getUrlParameter(name) {
+    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+    var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+    var results = regex.exec(url);
+    return results === null
+      ? ''
+      : decodeURIComponent(results[1].replace(/\+/g, ' '));
+  }
+});
+
+$('.cert-of-competency').on('click', function () {
+  $('.cert-of-competency-popup').addClass('active');
+});
+
+$('.close-cert-popup').on('click', function (event) {
+  event.stopPropagation(); // Prevents the click event from bubbling up to parent elements
+  $('.cert-of-competency-popup').removeClass('active');
+});
+
+$('.cert-of-competency-popup').on('click', function (event) {
+  // Check if the clicked element is not one of the children
+  if ($(event.target).hasClass('cert-of-competency-popup')) {
+    $('.cert-of-competency-popup').removeClass('active');
+  }
+});

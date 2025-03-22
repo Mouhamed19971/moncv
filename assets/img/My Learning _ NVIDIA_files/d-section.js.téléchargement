@@ -1,0 +1,25 @@
+$ = jQuery;
+$(document).ready(function () {
+  let dSections = $("[data-type='d-section']");
+  const pageSize = 12;
+  dSections.each(function (index) {
+    const queryParams = new URLSearchParams(window.location.search);
+    let name = $(this).attr('data-tag');
+    let terms = $(this).attr('data-terms');
+    let search = $(this).attr('data-search') || queryParams.get('q') || '';
+    let pace = $(this).attr('data-pace');
+    let multiple = $(this).attr('data-multiple');
+    if (name || terms) {
+      populateDS(name, search, pace, multiple, pageSize, 1, this);
+    }
+  });
+  handleDSSeeMore(pageSize);
+
+  let dBoxes = $('.dynamic-box');
+  dBoxes.each(function (index) {
+    let id = $(this).attr('data-id');
+    if (id) {
+      populateDBox(id);
+    }
+  });
+});

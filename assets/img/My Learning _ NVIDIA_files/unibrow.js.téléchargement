@@ -1,0 +1,61 @@
+$(document).ready(() => {
+    const style = $(`<style>
+        #unibrow-100 {
+            align-items: center;
+            background-color: rgb(118,185,0);
+            box-sizing: border-box;
+            color: black;
+            display: flex;
+            font-size: medium;
+            font-weight: 300;
+            flex-direction: column;
+            justify-content: center;
+            line-height: 24px;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+        #unibrow-100 p {
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+        #unibrow-100 a {
+            font-weight: 700;
+            color: black;
+            link-color: black;
+        }
+    </style>`)
+    style.insertAfter($('head'));
+    const unibrow = $(`
+        <div id='unibrow-100'>
+        </div>
+    `);
+    const paragraphs = [
+        `Self-paced courses are temporarily unavailable for purchase outside the USA as we transition to a new ecommerce system.`,
+        `We apologize for any inconvenience. <a href="https://learn.nvidia.com/en-us/training/self-paced-courses#all-free">Free courses</a> remain available for enrollment.`
+    ]
+    const nvMessage = false;
+    const userData = JSON.parse(window.localStorage?.userData || null);
+    if (nvMessage && userData && userData.user_email && userData.user_email.endsWith('@nvidia.com')) paragraphs.push(
+        `NVIDIANs should contact DLI support on Slack at 
+            <a href="https://nvidia.enterprise.slack.com/archives/C73TXN77D">#dp-dli-platform</a> 
+        for free course enrollment.`
+    )
+    paragraphs.forEach((para) => {
+        unibrow.append($(`<p>${para}</p>`))
+    });
+    unibrow.insertAfter($('.course_banner'));
+
+    // Free course scroller patch
+    $(`<a name='all-free'></a>`).insertBefore($('#free'))
+    if (location.href.indexOf('training/self-paced-courses') > 0) {
+        if (location.hash.length) {
+            setTimeout(() => {
+                $([document.documentElement, document.body]).animate({
+                    scrollTop: $(`a[name="${location.hash.substring(1)}"]`).offset().top
+                })
+            }, 700);
+        }
+        unibrow.insertBefore($('.see-whats-new.bgw.overview'))
+    }
+});

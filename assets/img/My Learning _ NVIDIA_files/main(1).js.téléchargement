@@ -1,0 +1,161 @@
+const logOut = () => {
+  if (!LOGIN_NOT_REQUIRED_PAGES.includes(window.location.pathname)) {
+    initiateLogout(() => {
+      window.location.href = IBL_SSO_URL('login');
+    });
+  } else {
+    $.get('/m-header.html?v=' + new Date().getTime(), function (data) {
+      $('#header').html(data);
+      if ($('#unibrow-style').length != 0) {
+        $('.training-menu.course-details').addClass('w_unib');
+      }
+    });
+  }
+};
+
+function parseQueryParams() {
+  const queryParams = new URLSearchParams(window.location.search);
+  const data = {};
+
+  queryParams.forEach((value, key) => {
+    // Handle specific replacements
+    if (key === 'q') {
+      data['query'] = value; // Replace 'q' with 'query'
+    } else if (key === 'courseformat') {
+      // Replace 'courseformat' with 'self_paced'
+      if (value === 'self-paced') {
+        data['self_paced'] = true;
+      } else if (value === 'instructor-led') {
+        data['self_paced'] = false;
+      }
+    } else {
+      // Handle boolean values
+      if (value === 'true' || value === 'false') {
+        data[key] = value === 'true';
+      }
+      // Handle numeric values
+      else if (!isNaN(Number(value))) {
+        data[key] = Number(value);
+      }
+      // Handle other string values
+      else {
+        data[key] = value;
+      }
+    }
+  });
+
+  return data;
+}
+
+$(document).ready(function () {
+  // Preload the required scripts
+  const preloadScripts = [IBL_AXD_PUB_CLIENT_URL, IBL_WEB_CORE_FRONTEND_URL];
+
+  const promises = preloadScripts.map((script) => loadScript(script));
+  Promise.all(promises)
+    .then(() => {
+      //All scripts are preloaded, proceed with main logic
+      window.api = new IblJsClient.default(
+        {
+          IBL_API_PROXY_URL: IBL_WEB_URL,
+          IBL_LMS_URL: IBL_LMS_URL,
+          IBL_DM_URL: IBL_DM_URL,
+          trackingConfig: {
+            INTERVAL: 5_000,
+            INACTIVITY_THRESHOLD: 60_000,
+            MIN_TRACKING_DURATION: 5_000,
+          },
+        },
+        { errors: { 401: logOut } }
+      );
+      // window.api = new IblJsClient.default({
+      //   IBL_API_PROXY_URL: IBL_WEB_URL,
+      //   IBL_LMS_URL: IBL_LMS_URL,
+      //   IBL_DM_URL: IBL_DM_URL,
+      // });
+
+      window.api.initiateAxdClientsWithAxdWebUrl(IBL_AXD_URL);
+      if (localStorage.axd_token) {
+        window.api.initiateAxdClientsWithToken(localStorage.axd_token);
+      }
+
+      const slug = getPageSlug();
+      console.log('page slug ', slug);
+      let token = localStorage.getItem('axd_token');
+      if (slug == '' && !token) {
+        loadSPAScript('catalog');
+        loadSPAScript('find-training');
+      }
+      if (slug == 'en-us/training/find-training') {
+        loadSPAScript('catalog');
+      }
+      // if (token) {
+      //   addMatomoScript();
+      // }
+      if (slug != 'en-us/training/self-paced-courses') {
+        loadSPAScript(slug);
+      }
+      loadSPAScript('d-section');
+      addMenuActiveClass(slug);
+      if (token) {
+        populateUserMeta();
+      }
+      addMenuHandler();
+    })
+    .catch((error) => {
+      console.error('Error loading one of the preloaded scripts ', error);
+    });
+
+  $(document)
+    .on('click', 'button[data-name="overlay-search"]', function () {
+      handleOverlaySearch();
+    })
+    .on('click', '.overlay-search-icon', function () {
+      const searchIcon = $('.opacity-less.search-icon');
+      const currentSrc = searchIcon.attr('src');
+
+      // Toggle the src between search-icon.svg and close-icon.svg
+      if (currentSrc.includes('/img/search-icon.svg')) {
+        searchIcon.attr('src', '/img/close-icon.svg?v=' + new Date().getTime()); // Add a timestamp to force reload
+        $('.search-overlay').show(); // Show the search overlay
+      } else {
+        searchIcon.attr(
+          'src',
+          '/img/search-icon.svg?v=' + new Date().getTime()
+        ); // Add a timestamp to force reload
+        $('.search-overlay').hide(); // Hide the search overlay
+      }
+    })
+    .on(
+      'keypress',
+      'input[data-name="overlay-search"]',
+      handleOveralySearchKeyPress
+    );
+
+  $('.search-overlay').on('click', function () {
+    $('.search-overlay').hide();
+    $('.opacity-less.search-icon').attr(
+      'src',
+      '/img/search-icon.svg?v=' + new Date().getTime()
+    );
+  });
+
+  $('.search-overlay--content').on('click', function (event) {
+    event.stopPropagation();
+  });
+
+  function handleOveralySearchKeyPress(event) {
+    if (event.which === 13) {
+      handleOverlaySearch();
+    }
+  }
+
+  function handleOverlaySearch() {
+    const value = $('input[data-name="overlay-search"]').val();
+    if (value?.length > 0) {
+      window.location.href = `/en-us/training/find-training?q=${encodeURIComponent(
+        value
+      )}`;
+    }
+  }
+});

@@ -1,0 +1,24 @@
+(function (d) {
+    const s = 'script', type = 'text/javascript', async = true, onload = (() => false);
+    function i(a) {
+        a = a.src ? a : { src: a, id: a.id };
+        if (a.alwaysReload) a.src += `?${new Date().getTime()}`
+        a.id ||= 'inject::' + a.src.replace(/^https?:\/\//, '').replaceAll('/', ':').replaceAll(/[^A-Za-z0-9._:]/g, '_');
+        if (!d.getElementById(a.id)) {
+            const ip = d.getElementsByTagName(s)[0]
+            return ip.parentNode.insertBefore(Object.assign(d.createElement(s), { type, async, onload }, a), ip);
+        }
+    };
+    [
+        { src: 'https://static.profile.api.courses.nvidia.com/lstrack_dli.js', onload: () => d.lstrack?.track('dli-attribution-v1') },
+        // { src: 'https://static.profile.api.courses.nvidia.com/iframe_handler.js', async: false },
+        // { src: 'https://static.profile.api.courses.nvidia.com/code-highlight.js', async: false },
+        // { src: 'https://static.profile.api.courses.nvidia.com/adapt.js', async: false },
+        { src: 'https://static.profile.api.courses.nvidia.com/button_suppressor.js', async: false },
+        { src: 'https://static.profile.api.courses.nvidia.com/store-queue-v2.js', async: false /*, alwaysReload: true  */ },
+        { src: 'https://static.profile.api.courses.nvidia.com/hotjar.js', async: false },
+        { src: 'https://static.profile.api.courses.nvidia.com/unibrow.js', async: false },
+        // { src: 'https://assets.adobedtm.com/5d4962a43b79/814eb6e9b4e1/launch-4bc07f1e0b0b.min.js', async: false },
+        // 'https://assets.adobedtm.com/5d4962a43b79/814eb6e9b4e1/3ed52f6cff8e/EX4e60db882cc84aaa9af85f8fb3affdf9-libraryCode_source.min.js'
+    ].forEach(i);
+}(document));

@@ -1,0 +1,31 @@
+const IBL_WEB_CORE_FRONTEND_URL =
+  'https://ibl.ai/sdk/js/main.js?versionId=yRbE_.HIaCvoa0fSDVFFhfedC33N71WE'; // Set IBL_WEB_CORE_FRONTEND_URL URL
+var IBL_WEB_URL = 'https://web.learn.nvidia.com/wp'; // Set IBL_WEB_URL URL
+var IBL_LMS_URL = 'https://learn.learn.nvidia.com'; // Set IBL_LMS_URL URL
+var IBL_DM_URL = 'https://base.manager.learn.nvidia.com'; // Set IBL_DM_URL URL
+const IBL_MFE_URL = 'https://apps.learn.learn.nvidia.com';
+var IBL_CURRENT_VERSION = '1.1.15';
+var IBL_SEARCH_URL = 'https://base.manager.learn.nvidia.com';
+var IBL_AXD_PUB_CLIENT_URL =
+  'https://learn-nvidia-com-dm-static.s3.amazonaws.com/pub_client.min.js';
+var IBL_AXD_URL = 'https://base.manager.learn.nvidia.com';
+IBL_IS_DIRECT_AXD_AUTH = false;
+var IBL_MATOMO_URL = 'https://web.data.learn.nvidia.com';
+var LOGIN_NOT_REQUIRED_PAGES = [
+  '/courses/course-detail',
+  '/',
+  '/en-us/training/find-training',
+  '/en-us/training/self-paced-courses',
+  '/certificates',
+];
+var IBL_SSO_URL = (auth, redirectPath) => {
+  if (!redirectPath) {
+    redirectPath = window.location.pathname + window.location.search;
+  }
+  localStorage.setItem('redirectPath', redirectPath);
+  return `https://learn.learn.nvidia.com/auth/login/nvidia/?auth_entry=login&next=%2Foauth2%2Fauthorize%3Fresponse_type%3Dcode%26client_id%3DutT7fNXnMmCIbdVfbEPA05e4AkE0IXHQoHADOWqr%26scope%3Dprofile%20email%26redirect_uri%3Dhttps%3A%2F%2Flearn.nvidia.com%2Flogin%2Fcomplete`;
+};
+var IBL_TRACKING_INTERVAL = 5_000;
+const NVIDIA_STORE_DOMAIN = 'https://api.store.nvidia.com';
+const NVIDIA_MARKET_PLACE_DOMAIN = 'https://marketplace.nvidia.com';
+var ENV = 'production';

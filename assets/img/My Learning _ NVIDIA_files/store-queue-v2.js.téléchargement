@@ -1,0 +1,117 @@
+(function (doc) {
+    const DO_REPLAY = '_dli_purchase_replay';
+    const INTERCEPT_DOMAIN = "api.store.nvidia.com";
+    const QUEUE_RETURN_DOMAIN = 'queue.store.nvidia.com';
+
+    const Utility = {
+        installScript(src, attributes = {}) {
+            const scriptTag = Object.assign(doc.createElement('script'), {
+                type: 'text/javascript',
+                src
+            });
+            Object.entries(attributes).forEach(([k, v]) => {
+                scriptTag.setAttribute(k, v)
+            });
+            doc.getElementsByTagName('head')[0].appendChild(scriptTag);
+        },
+        retryInterval(fn, attempts, intervalMs) {
+            let scheduleRetry;
+            scheduleRetry = () => setTimeout(() => {
+                if (fn() && --attempts > 0) scheduleRetry();
+            }, intervalMs);
+            if (fn()) scheduleRetry();
+        }
+    }
+
+    const QueueController = {
+        getOutboundQueueDomain() {
+            let domain_prefix = window?.location.host.split(".")[0];
+            if (domain_prefix == "dev") return null;
+            return INTERCEPT_DOMAIN
+        },
+        checkAndInstallQueue() {
+            const outboundQueueDomain = this.getOutboundQueueDomain();
+            if (!outboundQueueDomain) return false;
+
+            // This page should have queue support:
+            Utility.installScript("//static.queue-it.net/script/queueclient.min.js");
+            Utility.installScript("//static.queue-it.net/script/queueconfigloader.min.js", {
+                'data-queueit-c': 'nvidia',
+                'data-queueit-intercept-domain': outboundQueueDomain,
+                'data-queueit-intercept': true
+            });
+
+            return true;
+        }
+    }
+
+    const BuyReplayController = {
+        allowInvisible: true,
+        getBuyButtons(source) {
+            const elementArray = [... (source || doc.getElementsByClassName('buy-btn'))];
+            return elementArray
+                .filter(x => x.classList?.contains('buy-btn'))
+                .filter(x => this.allowInvisible || x.checkVisibility());
+        },
+        getShouldDoReplay() {
+            // First check and clear the replay flag.
+            // JSON.parse(null) === null
+            const replaySet = JSON.parse(window.sessionStorage?.getItem(DO_REPLAY));
+            window.sessionStorage.removeItem(DO_REPLAY);
+            if (!replaySet) return false;
+
+            // But if our referrer wasn't the queue, the queue didn't return us here. Ignore the flag.
+            const referrer = new URL(document.referrer);
+            return referrer.host === QUEUE_RETURN_DOMAIN;
+        },
+        checkAndDoReplay() {
+            if (!this.getShouldDoReplay()) return false;
+
+            // Use the button logic. The button won't appear if the user shouldn't be able to buy.
+            Utility.retryInterval(() => {
+                const buyButtons = this.getBuyButtons();
+                if (buyButtons.length == 0) return true;
+                // Click an arbitrary buy button
+                buyButtons[0].click();
+            }, 5, 500);
+            return true;
+        },
+        installReplayHook(element) {
+            element.addEventListener('click', () => {
+                let doInitialClickRetry = false;
+                window.sessionStorage.setItem(DO_REPLAY, JSON.stringify(true));
+                // If we haven't navigated in 250 ms, click the button again.
+                setTimeout(() => {
+                    if (doInitialClickRetry) {
+                        element.click();
+                        doInitialClickRetry = false;
+                    }
+                }, 250);
+            },)
+        },
+        installReplayHooks() {
+            const ctaContainer = doc.getElementsByClassName('course-cta')[0];
+            const observeConfig = { childList: true }
+            const observer = new MutationObserver((mutationList, _observer) => {
+                for (const mutation of mutationList) {
+                    this.getBuyButtons(mutation.addedNodes).forEach((el) => this.installReplayHook(el))
+                }
+            });
+            observer.observe(ctaContainer, observeConfig);
+
+            this.getBuyButtons().forEach((el) => {
+                this.installReplayHooks(el);
+            });
+        }
+    }
+
+    // If this page should not have queue support, none of this applies.
+    if (!QueueController.checkAndInstallQueue()) return;
+
+    // If we should do the replay:
+    if (BuyReplayController.checkAndDoReplay()) return; // Return early; don't hook for replay if we're trying to do the replay now
+
+    // Otherwise, hook the buy buttons and set the replay flag
+    BuyReplayController.installReplayHooks();
+
+}(document));
