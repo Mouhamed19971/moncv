@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="5094c36c-901e-4ebb-b5e0-d646b471be1f" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/assets/css/main.css" beforeDir="false" afterPath="$PROJECT_DIR$/assets/css/main.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/assets/img/IMG_6272.jpeg" beforeDir="false" afterPath="$PROJECT_DIR$/assets/img/IMG_6272.jpeg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mouhamedAbidelli.html" beforeDir="false" afterPath="$PROJECT_DIR$/mouhamedAbidelli.html" afterDir="false" />
-    </list>
+    <list default="true" id="5094c36c-901e-4ebb-b5e0-d646b471be1f" name="Default Changelist" comment="[feat] last change" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -15,6 +10,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "Mouhamed19971"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/Mouhamed19971/moncv.git",
+    "accountId": "aead90cd-7c57-46a4-9997-1e5c6dff681d"
+  }
+}]]></component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 8
 }</component>
@@ -65,11 +72,32 @@
       <updated>1742681026648</updated>
       <workItem from="1742681027700" duration="6152000" />
       <workItem from="1774260217389" duration="80000" />
-      <workItem from="1774260312280" duration="3827000" />
+      <workItem from="1774260312280" duration="3906000" />
     </task>
+    <task id="LOCAL-00001" summary="[feat] last change">
+      <option name="closed" value="true" />
+      <created>1774264633359</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1774264633359</updated>
+    </task>
+    <task id="LOCAL-00002" summary="[feat] last change">
+      <option name="closed" value="true" />
+      <created>1774264645977</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1774264645977</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="[feat] last change" />
+    <option name="LAST_COMMIT_MESSAGE" value="[feat] last change" />
   </component>
 </project>
